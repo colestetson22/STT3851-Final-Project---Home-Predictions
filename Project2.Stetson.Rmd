@@ -1,0 +1,284 @@
+---
+title: "Project 2: King County Housing Data"
+author: "Cole Stetson"
+date: "05/05/2026"
+output: 
+  bookdown::html_document2: 
+    highlight: textmate
+    theme: yeti
+---
+
+```{r, label = "SETUP", echo = FALSE, results= 'hide', message = FALSE, warning = FALSE}
+set.seed(123)
+library(knitr)
+library(ggplot2)
+knitr::opts_chunk$set(comment = NA,  fig.align = 'center', fig.height = 5, fig.width = 5, warning = FALSE, message = FALSE, tidy.opts=list(blank = TRUE, width.cutoff= 75))
+```
+
+# Variable Descriptions
+
+Variable descriptions were obtained from King County, Department of Assessments. All feature engineering should be done in the first code chunks of your document.
+
+- id - Unique ID for each home sold
+- date - Date of the home sale
+- price - Price of each home sold
+- bedrooms - Number of bedrooms
+- bathrooms - Number of bathrooms, where .5 accounts for a room with a toilet but no shower
+- sqft_living - Square footage of the apartments interior living space
+- sqft_lot - Square footage of the land space
+- floors - Number of floors
+- waterfront - A dummy variable for whether the apartment was overlooking the waterfront or not * 1’s represent a waterfront property, 0’s represent a non-waterfront property
+- view - An index from 0 to 4 of how good the view of the property was, 0 - lowest, 4 - highest
+- condition - An index from 1 to 5 on the condition of the apartment, 1 - lowest, 4 - highest
+- grade - An index from 1 to 13, where 1-3 falls short of building construction and design, 7 has an average level of construction and design, and 11-13 have a high quality level of construction and design.
+- sqft_above - The square footage of the interior housing space that is above ground level
+- sqft_basement - The square footage of the interior housing space that is below ground level
+- yr_built - The year the house was initially built
+- yr_renovated - The year of the house’s last renovation
+- zipcode - What zipcode area the house is in
+- lat - Lattitude
+- long - Longitude
+- sqft_living15 - The square footage of interior housing living space for the nearest 15 neighbors
+- sqft_lot15 - The square footage of the land lots of the nearest 15 neighbors
+
+# Data and Feature Engineering
+
+## Data Set (housedata) and Data to send predictions (housedataT)
+
+```{r}
+# Data Set
+
+housedata <- read.csv("https://lasanthi-asu.github.io/STT3851ClassRepo/Rmarkdown/Data/housedata.csv", 
+                      colClasses = c(id = "character", date = "character", 
+                                     yr_built = "character", zipcode = "factor", grade = "factor"))
+
+housedata$date <- as.Date(housedata$date, "%Y%m%d")
+housedata$waterfront <- factor(housedata$waterfront, labels = c("No", "Yes"))
+housedata$condition <- factor(housedata$condition, labels = c("poor", "fair", "average", "good", "very good"))
+housedata$yr_renovated <- ifelse(housedata$yr_renovated == 0, housedata$yr_built, housedata$yr_renovated)
+housedata$yr_built <- as.Date(ISOdate(housedata$yr_built, 9, 1))  # Complete Year, Sept 1
+housedata$yr_renovated <- as.Date(ISOdate(housedata$yr_renovated, 9, 1))  # Last renovated Year, Sept 1
+housedata <- housedata[, -1]
+
+
+# Test Data Set (only use this to send predictions)
+
+#### Perform same steps with test set
+
+housedataT <- read.csv("https://lasanthi-asu.github.io/STT3851ClassRepo/Rmarkdown/Data/housedataTEST.csv", 
+                      colClasses = c(id = "character", date = "character", 
+                                     yr_built = "character", zipcode = "factor", grade = "factor"))
+
+housedataT$date <- as.Date(housedataT$date, "%Y%m%d")
+housedataT$waterfront <- factor(housedataT$waterfront, labels = c("No", "Yes"))
+housedataT$condition <- factor(housedataT$condition, labels = c("poor", "fair", "average", "good", "very good"))
+housedataT$yr_renovated <- ifelse(housedataT$yr_renovated == 0, housedataT$yr_built, housedataT$yr_renovated)
+housedataT$yr_built <- as.Date(ISOdate(housedataT$yr_built, 9, 1))  # Complete Year, Sept 1
+housedataT$yr_renovated <- as.Date(ISOdate(housedataT$yr_renovated, 9, 1))  # Last renovated Year, Sept 1
+housedataT <- housedataT[, -1]
+```
+
+```{r}
+library(DT)
+datatable(housedata[, ], rownames = FALSE)
+```
+
+# Where to Start
+
+Correlation Matrix maybe helpful.
+
+Here is an example of a correlation matrix with some of the predictors
+
+
+```{r}
+# Corrplot
+library(corrplot)
+housedata1 <- housedata[, c(2:7, 9, 12, 13, 17:20)]
+cor(housedata1)
+```
+
+```{r}
+# Corrplot
+library(corrplot)
+corrplot(cor(housedata1))
+```
+
+**Analysis of Correlation Matrix/Plot:** 
+
+ - Strongest Correlation with Price: sqft_living, sqft_above, sqft_living15, bathrooms, and view.
+ 
+ - Strongest Interaction: All of the sqft variables with each other and with bathrooms/bedrooms.
+
+# Building Models
+
+## Most basic model (named mod.zip below).
+
+```{r}
+mod.zip <- lm(price ~ 1, data = housedata)
+summary(mod.zip)
+```
+
+**EXAMPLE/TEMPLATE**
+ 
+```{r}
+set.seed(1)
+mymod1 <- lm(price ~ ., data= housedata)
+netnon_dole <- predict(mymod1, newdata= housedataT)
+plot(mymod1)
+```
+
+**Analysis:** Expected skewness in residuals - needs log transformation on price. Curve in scale-location - needs nonlinear pieces.
+
+**Organizing Data and Variables - Test with lm**
+
+```{r}
+str(housedata)
+```
+
+**Analysis:** There's a mix of numerical variables, categorical variables, and variables that are labeled "Date". The four qualitative variables are waterfront, condition, grade, and zipcode. The three date variables are date, yr_built, and yr_renovated. I want to use a Ridge model as my final prediction model because it's good for highly correlated variables and I see a lot of correlation in the matrix/plot. Because of this I don't want to actually remove any variables because I know Ridge can use all of them and minimize them accordingly. The date predictors seem of kind of useless right now because a date alone doesn't really mean anything statistically. Therefore I want to clean up the "Date" predictors so that they are more useful but still included. I want to add a new numeric "age" variable to replace yr_built and date so that the difference (the actual current age of the house) is used. I also want to do the same thing with yr_renovated and add a numeric "age_renovated" variable so that the measure of how currently the house has been renovated is used. I think that both of these engineered features will make a noticeable difference. To futher improve the model, I will test out a bunch of different interaction terms by adding them and then choosing to either keep or remove them after seeing how the MSE changes. To see MSE I am going to split the datatset "housedata" into a training set and test set for cross validation. 
+
+```{r}
+library(glmnet)
+set.seed(123)
+
+#Adding new predictors to both housedata and housedataT
+housedata$age <- 2026 - as.numeric(format(housedata$yr_built, "%Y"))
+housedata$age_renovated <- 2026 - as.numeric(format(housedata$yr_renovated, "%Y"))
+#Note: I know that we did not learn the "as.numeric(format())" in our class. I looked up online how to extract the year from the date and this is was what I found. This is not completely original work but it was an original idea and I thought using external resources would be okay for this situation.
+housedata$log_sqft_living <- log(housedata$sqft_living) #difference between 1000-2000 sqft has bigger impact on price than 5000-6000 sqft
+housedata$log_sqft_lot <- log(housedata$sqft_lot) #same concept as last line
+housedata$bathrooms_sq <- housedata$bathrooms^2 
+housedata$living_grade <- housedata$sqft_living * as.numeric(housedata$grade)
+#I am using the same "as.numeric() function on the categorical variable grade to make it numerical for interaction. I think house size and quality of construction is an important aspect to capture because some big houses are built poorly. 
+housedata$living_view <- housedata$sqft_living * housedata$view #big homes that also have a good view have a bigger impact on price
+housedata$bed_bath <- housedata$bedrooms * housedata$bathrooms
+housedata$age_condition <- housedata$age * as.numeric(housedata$condition)
+#using as.numeric() function on condition for same thing. I think that some old houses have been properly maintained or renovated so they shouldn't be as punished for being old. 
+housedata$rel_living <- housedata$sqft_living / housedata$sqft_living15 #how big a house is in relation to houses around it is also very important. My parents found a good deal on their house in Asheville because its the smallest house in a nice neighborhood. 
+
+#Note: I tried a lot of other interaction variables during the process and removed ones I didn't find useful. These are just the ones I want to include for the final model. Im sure that there are some important ones that I am missing. The sqft interactions terms with one another just felt repetitive so I didn't try many out. I wanted to focus on thinking outside the box and find some hidden relationships that could make a big difference. 
+
+#Additonal Post-Note: Changing the lambda made a huge difference. Honestly I could've just left every additonal variable I created because the Ridge model with a good lambda would've minmized the less usefull variables anyway.
+
+housedataT$age <- 2026 - as.numeric(format(housedataT$yr_built, "%Y"))
+housedataT$age_renovated <- 2026 - as.numeric(format(housedataT$yr_renovated, "%Y"))
+housedataT$log_sqft_living <- log(housedataT$sqft_living)
+housedataT$log_sqft_lot <- log(housedataT$sqft_lot)
+housedataT$bathrooms_sq <- housedataT$bathrooms^2
+housedataT$living_grade <- housedataT$sqft_living * as.numeric(housedataT$grade)
+housedataT$living_view <- housedataT$sqft_living * housedataT$view
+housedataT$bed_bath <- housedataT$bedrooms * housedataT$bathrooms
+housedataT$age_condition <- housedataT$age * as.numeric(housedataT$condition)
+housedataT$rel_living <- housedataT$sqft_living / housedataT$sqft_living15
+
+
+
+#Training Splits for Cross Validation
+train <- sample(1:nrow(housedata), nrow(housedata) / 2)
+train_data <- housedata[train, ]
+test_data  <- housedata[-train, ]
+
+
+x_train <- model.matrix(price ~ . - date - yr_built - yr_renovated, data = train_data)[, -1]
+x_test  <- model.matrix(price ~ . - date - yr_built - yr_renovated, data = test_data)[, -1]
+
+y_train <- log(train_data$price)
+y_test  <- log(test_data$price)
+
+grid <- 10^seq(4, -4, length = 200)
+#This felt like the biggest piece of my entire model. I had started with the 10^seq(10, -2, length=100) template that we had used in class but I noticed that Lasso and Ridge both picked lambda=0.01. I thought this was a little strange so I wanted to change how I defined the grid and see if it made a difference. I had to look up online what the roles of each number in the function were then once I understood the format I started to change them. This was probably around the 5th setup that I tried and it drastically lowered my MSE so I just stuck with it.
+```
+
+**Explanation:** I'm sorry if everything looks a little sloppy. I was trying things quickly 
+
+```{r}
+lm_model <- lm(log(price) ~ . - date - yr_built - yr_renovated, data = train_data)
+
+lm_pred <- predict(lm_model, newdata = test_data)
+
+lm_mse <- mean((y_test - lm_pred)^2)
+
+lm_mse
+plot(lm_model)
+```
+
+**LASSO**
+
+```{r}
+lasso_fit <- glmnet(x_train, y_train, alpha = 1, lambda=grid)
+cv_lasso <- cv.glmnet(x_train, y_train, alpha = 1, lambda= grid)
+
+best_lambda_lasso <- cv_lasso$lambda.min
+best_lambda_lasso
+
+lasso_model <- glmnet(x_train, y_train, alpha = 1, lambda = best_lambda_lasso)
+
+coef(lasso_model)
+```
+
+```{r}
+lasso_pred <- predict(cv_lasso, s = best_lambda_lasso, newx = x_test)
+
+lasso_mse <- mean((y_test - lasso_pred)^2)
+lasso_mse
+
+plot(lasso_pred, y_test - lasso_pred)
+```
+
+Analysis: Higher MSE than OLS which shows that removing some variables entirely may not be the best idea.
+
+**RIDGE**
+
+```{r}
+library(glmnet)
+
+ridge_fit <- glmnet(x_train, y_train, alpha = 0, lambda=grid)
+cv_ridge <- cv.glmnet(x_train, y_train, alpha = 0, lambda= grid)
+
+best_lambda_ridge <- cv_ridge$lambda.min
+best_lambda_ridge
+
+ridge_model <- glmnet(x_train, y_train, alpha = 0, lambda = best_lambda_ridge)
+```
+
+```{r}
+ridge_pred <- predict(cv_ridge, s = best_lambda_ridge, newx = x_test)
+
+ridge_mse <- mean((y_test - ridge_pred)^2)
+ridge_mse
+
+plot(ridge_pred, y_test - ridge_pred)
+```
+
+Analysis: Lower MSE than Lasso, most likely works better because of variables being highly correlated. This confirms ideas from Scale-Location plot from OLS.
+
+**MSE Table**
+
+```{r}
+model_results <- data.frame(Model = c("OLS", "LASSO", "Ridge"), Test_MSE = c(lm_mse, lasso_mse, ridge_mse))
+
+model_results
+```
+
+**Format for Final Prediction "Stetson_Cole"**
+
+```{r}
+
+x_all <- model.matrix(price ~ . - date - yr_built - yr_renovated, data = housedata)[, -1]
+y_all <- log(housedata$price)
+
+cv_ridge_full <- cv.glmnet(x_all, y_all, alpha = 0, lambda = grid)
+best_lambda_full <- cv_ridge_full$lambda.min
+housedataT_final <- model.matrix(~ . - date - yr_built - yr_renovated, data = housedataT)[, -1]
+
+Stetson_Cole <- predict(cv_ridge_full, s = best_lambda_full, newx = housedataT_final)
+
+Stetson_Cole <- exp(Stetson_Cole)
+
+nrow(housedataT)
+length(Stetson_Cole)
+
+write.csv(Stetson_Cole, file = "Stetson_Cole.csv", row.names = FALSE)
+```
+
+
