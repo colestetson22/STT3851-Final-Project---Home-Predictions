@@ -2,55 +2,79 @@
 
 ## Project Overview
 
-This project was completed as part of my coursework at Appalachian State University using **RStudio**. The goal was to develop a regression model to predict residential housing prices using the **2014–2015 King County Housing dataset** from Kaggle.
+This project was completed as part of my coursework at Appalachian State University using **RStudio**. The goal was to develop a regression model to predict residential housing prices using the **2014–2015 King County Housing dataset**.
 
-For the project, my professor split the dataset into two portions. I was given one portion with known sale prices to analyze, modify, and use for model development. The final model was then used to predict housing prices for the remaining portion of the data.
+For the project, my professor divided the dataset into two portions. I was provided with one portion containing known sale prices to use for analysis and model development. The second portion did not include sale prices and was used to generate my final predictions.
 
-## Data Preparation & Feature Engineering
+## Data Exploration & Feature Engineering
 
-I began the analysis by exploring the original variables and preparing the data for modeling. Rather than using only the variables in their original form, I modified existing features and created new variables that could better represent characteristics affecting housing prices.
+I began by exploring the relationships between the available predictors and housing prices. I then modified existing variables and created new features that could better represent factors affecting housing prices.
 
-This stage included:
+Some of the feature engineering included:
 
-- Exploring the distributions and relationships between variables
-- Transforming and modifying existing variables
-- Creating new features from the available housing data
-- Preparing categorical and numerical variables for regression
-- Identifying variables that could improve prediction performance
+- Creating house age and renovation age variables
+- Applying log transformations to living area and lot size
+- Creating a squared bathroom term to account for a possible nonlinear relationship
+- Creating interactions between living area and construction grade
+- Creating interactions between living area and view quality
+- Creating bedroom-to-bathroom interactions
+- Creating an interaction between house age and condition
+- Comparing a home's living area to the living area of nearby homes
+
+I also applied a **log transformation to sale price** after examining the initial OLS regression diagnostics.
 
 ## Model Development
 
-After preparing the data, I built and compared three regression approaches:
+I built and compared three regression approaches:
 
 - **Ordinary Least Squares (OLS) Regression**
 - **Lasso Regression**
 - **Ridge Regression**
 
-I evaluated the models based on their ability to predict housing prices on unseen data. Lasso and Ridge regression were explored as regularized alternatives to OLS, allowing me to examine whether controlling coefficient size could improve predictive performance.
+I divided the provided housing data into training and testing sets so that I could compare how well each model performed on held-out data. Model performance was evaluated using **Mean Squared Error (MSE)**.
 
-After comparing the models, I selected **Ridge Regression** as my final model because it produced the best results for this dataset.
+For Lasso and Ridge regression, I used cross-validation to select the regularization parameter, lambda.
 
-## Final Prediction
+## Model Selection
 
-The final Ridge model was trained using the provided training data and then applied to the held-out portion of the King County dataset to generate predicted housing prices.
+After comparing the performance of the three approaches, I selected **Ridge Regression** as my final model.
 
-## Skills Demonstrated
+The housing dataset contains several correlated predictors, particularly variables related to the size and characteristics of a home. Ridge regression allowed these predictors to remain in the model while shrinking their coefficients through regularization.
+
+Based on my model testing, Ridge produced the best results and was selected to generate the final housing price predictions.
+
+## Final Predictions
+
+After selecting Ridge, I trained the final model using the available training data and used it to predict sale prices for the unseen portion of the dataset.
+
+Because the model was trained using log-transformed sale prices, the predictions were transformed back into dollar values before being exported.
+
+## Tools & Techniques
 
 - R / RStudio
+- `glmnet`
+- `ggplot2`
+- `corrplot`
 - Data cleaning and preprocessing
 - Exploratory data analysis
 - Feature engineering
-- Ordinary Least Squares regression
+- Correlation analysis
+- OLS regression
 - Lasso regression
 - Ridge regression
 - Regularization
-- Model comparison and evaluation
+- Cross-validation
+- Model evaluation using MSE
 - Predictive modeling
 
-## Dataset
+## Data Source & Acknowledgment
 
-The project uses the **2014–2015 King County House Sales dataset** from Kaggle. The dataset contains information about residential properties in King County, Washington, including housing characteristics, location information, and sale prices.
+The original data comes from the **2014–2015 King County Housing dataset**, available through Kaggle. For this project, the dataset was provided and divided into training and prediction sets by my professor at Appalachian State University as part of the course assignment.
 
-## Purpose
+All data preparation, feature engineering, model development, model comparison, and final predictions included in this repository were completed by me.
 
-The purpose of this project was to gain experience with the full predictive modeling process—from exploring and modifying raw data to engineering features, comparing regression techniques, selecting a final model, and using that model to make predictions on unseen data.
+## What I Learned
+
+This project gave me experience working through a complete predictive modeling process rather than simply fitting a single regression model. I explored and modified the original data, engineered new predictors, compared multiple regression approaches, tuned regularization parameters, evaluated models using held-out data, and used the final model to make predictions on unseen observations.
+
+One of my main takeaways was seeing how **feature engineering, correlated predictors, and regularization can affect predictive performance**, as well as why different regression methods can perform differently on the same dataset.
